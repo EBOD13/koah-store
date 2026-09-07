@@ -1,0 +1,67 @@
+// Prisma schema for the Koah Store conversion attribution system.
+// See prisma/README.md for a full explanation of these models, why they're
+// shaped this way, and how they relate to each other.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventType {
+  page_view
+  purchase
+}
+
+/// One row per unique browser, identified by the `koah_visitor_id` cookie.
+/// This is the "unique user" the dashboard's metrics are about. Attribution
+/// (the utm* fields) is captured once, on the very first event we ever see
+/// for this visitor, and is never overwritten afterwards (first-touch model).
+model Visitor {
+  id          String   @id @default(uuid())
+  utmSource   String? // 'google' | 'koah' | 'facebook' | null (direct traffic)
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  landingUrl  String? // the URL this visitor first arrived on
+  createdAt   DateTime @default(now())
+
+  events Event[]
+
+  @@index([utmSource])
+}
+
+/// Product model
+model Product {
+  id        String   @id @default(uuid())
+  name      String
+  price     Int // stored in cents to avoid floating point issues
+  category  String
+  imageUrl  String
+  createdAt DateTime @default(now())
+
+  events Event[]
+}
+
+/// Append-only raw log of every page_view and purchase. This is exactly what
+/// the admin "event debugger" table renders, and it is also the source data
+/// the metrics endpoint aggregates (grouped by the parent Visitor's utmSource).
+model Event {
+  id        String    @id @default(uuid())
+  type      EventType
+  url       String
+  createdAt DateTime  @default(now())
+
+  visitorId String
+  visitor   Visitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([visitorId])
+  @@index([type])
+}

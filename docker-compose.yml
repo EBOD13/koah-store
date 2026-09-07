@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: koah-store-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: koah
+      POSTGRES_PASSWORD: koah
+      POSTGRES_DB: koah_store
+    ports:
+      - "5432:5432"
+    volumes:
+      - koah_store_pgdata:/var/lib/postgresql/data
+
+volumes:
+  koah_store_pgdata:
